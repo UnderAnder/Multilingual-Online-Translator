@@ -1,4 +1,5 @@
 import requests
+from time import sleep
 from bs4 import BeautifulSoup
 
 URL = 'https://context.reverso.net/translation/'
@@ -13,22 +14,30 @@ def main():
 
 
 def translate(lang, word):
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    req = requests.get(f'{URL}{"english-french/" if lang == "fr" else "french-english/"}{word}', headers=headers)
-    print(req.status_code, 'OK')
-    if not req:
-        pass
-        # retry
+    language, req = connect(lang, word)
+
     soup = BeautifulSoup(req.content, 'lxml')
-    print('Translations')
-    translations = []
-    for translation in soup.find_all('a', class_='translation'):
-        translations.append(translation.text.strip())
-    print(translations)
-    examples = []
-    for example in soup.find_all('div', class_='ltr'):
-        examples.append(example.text.strip())
-    print(examples)
+
+    translations = [x.text.strip() for x in soup.select("#translations-content > .translation")]
+    examples = [x.text.strip() for x in soup.select("#examples-content > .example >  .ltr")]
+
+    print('\n', language, 'Translations:')
+    print('\n'.join(x for x in translations[:5]))
+    print('\n', language, 'Examples')
+    print('\n'.join(f'{x}\n{y}\n' for x, y in zip(examples[:10:2], examples[1:11:2])))
+
+
+def connect(lang, word):
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    conn, req = False, None
+    language = 'French' if lang == 'fr' else 'English'
+    translate_direction = "english-french/" if lang == "fr" else "french-english/"
+    while not conn:
+        req = requests.get(f'{URL}{translate_direction}{word}', headers=headers)
+        conn = True if req else False
+        sleep(1)
+        print(req.status_code, req.reason)
+    return language, req
 
 
 if __name__ == '__main__':
