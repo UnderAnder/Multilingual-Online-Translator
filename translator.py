@@ -4,9 +4,11 @@ from enum import Enum
 from bs4 import BeautifulSoup
 
 URL = 'https://context.reverso.net/translation/'
+SESSION = requests.Session()
 
 
 class Languages(Enum):
+    All = 0
     Arabic = 1
     German = 2
     English = 3
@@ -26,25 +28,44 @@ def main() -> None:
     print("'Hello, you're welcome to the translator. Translator supports:'")
     print('\n'.join(f'{i}. {x.name}' for i, x in enumerate(Languages)))
     orig_lang = int(input('Type the number of your language:\n'))
-    target_lang = int(input('Type the number of language you want to translate to:\n'))
+    target_lang = int(
+        input('Type the number of a language you want to translate to or "0" to translate to all languages:\n'))
     word = input('Type the word you want to translate:\n')
-    translate(orig_lang, target_lang, word)
+    start(orig_lang, target_lang, word)
+    with open(f'{word}.txt', 'r', encoding='utf-8') as f:
+        print(f.read())
 
 
-def translate(orig_lang: int, target_lang: int, word: str) -> None:
-    orig_name, target_name = Languages(orig_lang).name, Languages(target_lang).name
+def start(orig_lang: int, target_lang: int, word: str) -> None:
+    orig_name = Languages(orig_lang).name
+    target_name = Languages(target_lang).name
+    if target_name == 'All':
+        for target in Languages:
+            if target.name == 'All' or target.name == orig_name:
+                continue
+            translate(orig_name, target.name, word, 1)
+    else:
+        translate(orig_name, target_name, word, 1)
+
+
+def translate(orig_name: str, target_name: str, word: str, result_num: int) -> None:
     translate_direction = f"{orig_name}-{target_name}/".lower()
-
     req = connect(translate_direction, word)
     soup = BeautifulSoup(req.content, 'lxml')
 
     translations = [x.text.strip() for x in soup.select("#translations-content > .translation")]
     examples = [x.text.strip() for x in soup.select("#examples-content > .example >  .ltr")]
 
-    print('\n', target_name, 'Translations:')
-    print(*translations[:5], sep='\n')
-    print('\n', target_name, 'Examples:')
-    print('\n'.join(f'{x}\n{y}\n' for x, y in zip(examples[:10:2], examples[1:11:2])))
+    translate_header = f"{target_name} Translations:"
+    example_header = f"{target_name} Examples:"
+    translate_result = translations[:result_num]
+    example_result = '\n'.join(f'{x}\n{y}\n' for x, y in zip(examples[:result_num * 2:2], examples[1:result_num * 2:2]))
+    
+    with open(f'{word}.txt', 'a', encoding='utf-8') as f:
+        print(translate_header, file=f)
+        print(*translate_result, '\n', file=f)
+        print(example_header, file=f)
+        print(example_result, file=f)
 
 
 def connect(translate_direction: str, word: str) -> requests.Response:
@@ -52,10 +73,9 @@ def connect(translate_direction: str, word: str) -> requests.Response:
     conn, req = False, None
 
     while not conn:
-        req = requests.get(f'{URL}{translate_direction}{word}', headers=headers)
+        req = SESSION.get(f'{URL}{translate_direction}{word}', headers=headers)
         conn = True if req else False
-        sleep(1)
-        print(req.status_code, req.reason)
+        sleep(0.01)
     return req
 
 
