@@ -2,6 +2,7 @@ import requests
 from time import sleep
 from enum import Enum
 from bs4 import BeautifulSoup
+from sys import argv
 
 URL = 'https://context.reverso.net/translation/'
 SESSION = requests.Session()
@@ -25,12 +26,21 @@ class Languages(Enum):
 
 
 def main() -> None:
-    print("'Hello, you're welcome to the translator. Translator supports:'")
-    print('\n'.join(f'{i}. {x.name}' for i, x in enumerate(Languages)))
-    orig_lang = int(input('Type the number of your language:\n'))
-    target_lang = int(
-        input('Type the number of a language you want to translate to or "0" to translate to all languages:\n'))
-    word = input('Type the word you want to translate:\n')
+    if len(argv) > 1:
+        if len(argv) == 4:
+            orig_lang, target_lang, word = argv[1:]
+            orig_lang, target_lang = Languages[orig_lang.capitalize()], Languages[target_lang.capitalize()]
+        else:
+            print('Error: wrong arguments number')
+            exit()
+    else:
+        print("'Hello, you're welcome to the translator. Translator supports:'")
+        print('\n'.join(f'{i}. {x.name}' for i, x in enumerate(Languages)))
+        orig_lang = int(input('Type the number of your language:\n'))
+        target_lang = int(
+            input('Type the number of a language you want to translate to or "0" to translate to all languages:\n'))
+        word = input('Type the word you want to translate:\n')
+
     start(orig_lang, target_lang, word)
     with open(f'{word}.txt', 'r', encoding='utf-8') as f:
         print(f.read())
@@ -60,7 +70,7 @@ def translate(orig_name: str, target_name: str, word: str, result_num: int) -> N
     example_header = f"{target_name} Examples:"
     translate_result = translations[:result_num]
     example_result = '\n'.join(f'{x}\n{y}\n' for x, y in zip(examples[:result_num * 2:2], examples[1:result_num * 2:2]))
-    
+
     with open(f'{word}.txt', 'a', encoding='utf-8') as f:
         print(translate_header, file=f)
         print(*translate_result, '\n', file=f)
