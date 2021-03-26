@@ -1,8 +1,8 @@
-import requests
-from time import sleep
 from enum import Enum
-from bs4 import BeautifulSoup
 from sys import argv
+
+import requests
+from bs4 import BeautifulSoup
 
 URL = 'https://context.reverso.net/translation/'
 SESSION = requests.Session()
@@ -26,21 +26,23 @@ class Languages(Enum):
 
 
 def main() -> None:
-    if len(argv) > 1:
-        if len(argv) == 4:
-            orig_lang, target_lang, word = argv[1:]
+    if len(argv) == 4:
+        orig_lang, target_lang, word = argv[1:]
+        try:
             orig_lang, target_lang = Languages[orig_lang.capitalize()], Languages[target_lang.capitalize()]
-        else:
-            print('Error: wrong arguments number')
+        except KeyError:
+            print("Sorry, the program doesn't support", target_lang)
             exit()
-    else:
-        print("'Hello, you're welcome to the translator. Translator supports:'")
+    elif len(argv) == 1:
+        print("Hello, you're welcome to the translator. Translator supports:")
         print('\n'.join(f'{i}. {x.name}' for i, x in enumerate(Languages)))
         orig_lang = int(input('Type the number of your language:\n'))
-        target_lang = int(
-            input('Type the number of a language you want to translate to or "0" to translate to all languages:\n'))
+        target_lang = int(input('Type the number of a language you want to translate to or "0" to translate to all languages:\n'))
         word = input('Type the word you want to translate:\n')
-
+    else:
+        print('Error: wrong arguments number')
+        exit()
+        
     start(orig_lang, target_lang, word)
     with open(f'{word}.txt', 'r', encoding='utf-8') as f:
         print(f.read())
@@ -62,10 +64,8 @@ def translate(orig_name: str, target_name: str, word: str, result_num: int) -> N
     translate_direction = f"{orig_name}-{target_name}/".lower()
     req = connect(translate_direction, word)
     soup = BeautifulSoup(req.content, 'lxml')
-
     translations = [x.text.strip() for x in soup.select("#translations-content > .translation")]
     examples = [x.text.strip() for x in soup.select("#examples-content > .example >  .ltr")]
-
     translate_header = f"{target_name} Translations:"
     example_header = f"{target_name} Examples:"
     translate_result = translations[:result_num]
@@ -80,12 +80,15 @@ def translate(orig_name: str, target_name: str, word: str, result_num: int) -> N
 
 def connect(translate_direction: str, word: str) -> requests.Response:
     headers = {'User-Agent': 'Mozilla/5.0'}
-    conn, req = False, None
+    req = SESSION.get(f'{URL}{translate_direction}{word}', headers=headers)
 
-    while not conn:
-        req = SESSION.get(f'{URL}{translate_direction}{word}', headers=headers)
-        conn = True if req else False
-        sleep(0.01)
+    if req.status_code == 404:
+        print(f'Sorry, unable to find {word}')
+        exit()
+    if not req:
+        print('Something wrong with your internet connection')
+        exit()
+
     return req
 
 
